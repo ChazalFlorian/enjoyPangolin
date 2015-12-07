@@ -12,6 +12,8 @@ use \PropelCollection;
 use \PropelException;
 use \PropelObjectCollection;
 use \PropelPDO;
+use EP\ArticleBundle\Model\Article;
+use EP\CommentaryBundle\Model\Commentary;
 use EP\UserBundle\Model\Group;
 use EP\UserBundle\Model\User;
 use EP\UserBundle\Model\UserGroup;
@@ -60,6 +62,14 @@ use EP\UserBundle\Model\UserQuery;
  * @method UserQuery leftJoin($relation) Adds a LEFT JOIN clause to the query
  * @method UserQuery rightJoin($relation) Adds a RIGHT JOIN clause to the query
  * @method UserQuery innerJoin($relation) Adds a INNER JOIN clause to the query
+ *
+ * @method UserQuery leftJoinArticle($relationAlias = null) Adds a LEFT JOIN clause to the query using the Article relation
+ * @method UserQuery rightJoinArticle($relationAlias = null) Adds a RIGHT JOIN clause to the query using the Article relation
+ * @method UserQuery innerJoinArticle($relationAlias = null) Adds a INNER JOIN clause to the query using the Article relation
+ *
+ * @method UserQuery leftJoinCommentary($relationAlias = null) Adds a LEFT JOIN clause to the query using the Commentary relation
+ * @method UserQuery rightJoinCommentary($relationAlias = null) Adds a RIGHT JOIN clause to the query using the Commentary relation
+ * @method UserQuery innerJoinCommentary($relationAlias = null) Adds a INNER JOIN clause to the query using the Commentary relation
  *
  * @method UserQuery leftJoinUserGroup($relationAlias = null) Adds a LEFT JOIN clause to the query using the UserGroup relation
  * @method UserQuery rightJoinUserGroup($relationAlias = null) Adds a RIGHT JOIN clause to the query using the UserGroup relation
@@ -931,6 +941,154 @@ abstract class BaseUserQuery extends ModelCriteria
         }
 
         return $this->addUsingAlias(UserPeer::FACEBOOKID, $facebookid, $comparison);
+    }
+
+    /**
+     * Filter the query by a related Article object
+     *
+     * @param   Article|PropelObjectCollection $article  the related object to use as filter
+     * @param     string $comparison Operator to use for the column comparison, defaults to Criteria::EQUAL
+     *
+     * @return                 UserQuery The current query, for fluid interface
+     * @throws PropelException - if the provided filter is invalid.
+     */
+    public function filterByArticle($article, $comparison = null)
+    {
+        if ($article instanceof Article) {
+            return $this
+                ->addUsingAlias(UserPeer::ID, $article->getAuthorId(), $comparison);
+        } elseif ($article instanceof PropelObjectCollection) {
+            return $this
+                ->useArticleQuery()
+                ->filterByPrimaryKeys($article->getPrimaryKeys())
+                ->endUse();
+        } else {
+            throw new PropelException('filterByArticle() only accepts arguments of type Article or PropelCollection');
+        }
+    }
+
+    /**
+     * Adds a JOIN clause to the query using the Article relation
+     *
+     * @param     string $relationAlias optional alias for the relation
+     * @param     string $joinType Accepted values are null, 'left join', 'right join', 'inner join'
+     *
+     * @return UserQuery The current query, for fluid interface
+     */
+    public function joinArticle($relationAlias = null, $joinType = Criteria::INNER_JOIN)
+    {
+        $tableMap = $this->getTableMap();
+        $relationMap = $tableMap->getRelation('Article');
+
+        // create a ModelJoin object for this join
+        $join = new ModelJoin();
+        $join->setJoinType($joinType);
+        $join->setRelationMap($relationMap, $this->useAliasInSQL ? $this->getModelAlias() : null, $relationAlias);
+        if ($previousJoin = $this->getPreviousJoin()) {
+            $join->setPreviousJoin($previousJoin);
+        }
+
+        // add the ModelJoin to the current object
+        if ($relationAlias) {
+            $this->addAlias($relationAlias, $relationMap->getRightTable()->getName());
+            $this->addJoinObject($join, $relationAlias);
+        } else {
+            $this->addJoinObject($join, 'Article');
+        }
+
+        return $this;
+    }
+
+    /**
+     * Use the Article relation Article object
+     *
+     * @see       useQuery()
+     *
+     * @param     string $relationAlias optional alias for the relation,
+     *                                   to be used as main alias in the secondary query
+     * @param     string $joinType Accepted values are null, 'left join', 'right join', 'inner join'
+     *
+     * @return   \EP\ArticleBundle\Model\ArticleQuery A secondary query class using the current class as primary query
+     */
+    public function useArticleQuery($relationAlias = null, $joinType = Criteria::INNER_JOIN)
+    {
+        return $this
+            ->joinArticle($relationAlias, $joinType)
+            ->useQuery($relationAlias ? $relationAlias : 'Article', '\EP\ArticleBundle\Model\ArticleQuery');
+    }
+
+    /**
+     * Filter the query by a related Commentary object
+     *
+     * @param   Commentary|PropelObjectCollection $commentary  the related object to use as filter
+     * @param     string $comparison Operator to use for the column comparison, defaults to Criteria::EQUAL
+     *
+     * @return                 UserQuery The current query, for fluid interface
+     * @throws PropelException - if the provided filter is invalid.
+     */
+    public function filterByCommentary($commentary, $comparison = null)
+    {
+        if ($commentary instanceof Commentary) {
+            return $this
+                ->addUsingAlias(UserPeer::ID, $commentary->getAuthorId(), $comparison);
+        } elseif ($commentary instanceof PropelObjectCollection) {
+            return $this
+                ->useCommentaryQuery()
+                ->filterByPrimaryKeys($commentary->getPrimaryKeys())
+                ->endUse();
+        } else {
+            throw new PropelException('filterByCommentary() only accepts arguments of type Commentary or PropelCollection');
+        }
+    }
+
+    /**
+     * Adds a JOIN clause to the query using the Commentary relation
+     *
+     * @param     string $relationAlias optional alias for the relation
+     * @param     string $joinType Accepted values are null, 'left join', 'right join', 'inner join'
+     *
+     * @return UserQuery The current query, for fluid interface
+     */
+    public function joinCommentary($relationAlias = null, $joinType = Criteria::INNER_JOIN)
+    {
+        $tableMap = $this->getTableMap();
+        $relationMap = $tableMap->getRelation('Commentary');
+
+        // create a ModelJoin object for this join
+        $join = new ModelJoin();
+        $join->setJoinType($joinType);
+        $join->setRelationMap($relationMap, $this->useAliasInSQL ? $this->getModelAlias() : null, $relationAlias);
+        if ($previousJoin = $this->getPreviousJoin()) {
+            $join->setPreviousJoin($previousJoin);
+        }
+
+        // add the ModelJoin to the current object
+        if ($relationAlias) {
+            $this->addAlias($relationAlias, $relationMap->getRightTable()->getName());
+            $this->addJoinObject($join, $relationAlias);
+        } else {
+            $this->addJoinObject($join, 'Commentary');
+        }
+
+        return $this;
+    }
+
+    /**
+     * Use the Commentary relation Commentary object
+     *
+     * @see       useQuery()
+     *
+     * @param     string $relationAlias optional alias for the relation,
+     *                                   to be used as main alias in the secondary query
+     * @param     string $joinType Accepted values are null, 'left join', 'right join', 'inner join'
+     *
+     * @return   \EP\CommentaryBundle\Model\CommentaryQuery A secondary query class using the current class as primary query
+     */
+    public function useCommentaryQuery($relationAlias = null, $joinType = Criteria::INNER_JOIN)
+    {
+        return $this
+            ->joinCommentary($relationAlias, $joinType)
+            ->useQuery($relationAlias ? $relationAlias : 'Commentary', '\EP\CommentaryBundle\Model\CommentaryQuery');
     }
 
     /**

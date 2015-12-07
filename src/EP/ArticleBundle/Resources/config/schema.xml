@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<database name="enjoyPangolin" namespace="EP\ArticleBundle\Model" defaultIdMethod="native">
-    <table name="article">
+<database name="default" namespace="EP\ArticleBundle\Model" defaultIdMethod="native">
+    <table name="article" phpName="Article">
         <column name="id" type="integer" required="true" primaryKey="true" autoIncrement="true"/>
         <column name="title" type="varchar" size="255" required="true"/>
         <column name="img" type="varchar" size="255" required="true"/>
@@ -8,7 +8,7 @@
         <column name="content" type="longvarchar" required="true"/>
         <column name="author_id" type="integer" required="true"/>
         <column name="YSource" type="varchar" size="255"/>
-        <foreign-key foreignTable="user">
+        <foreign-key foreignTable="fos_user">
             <reference local="author_id" foreign="id"/>
         </foreign-key>
     </table>

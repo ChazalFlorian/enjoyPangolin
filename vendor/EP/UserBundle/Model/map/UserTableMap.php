@@ -69,6 +69,8 @@ class UserTableMap extends TableMap
      */
     public function buildRelations()
     {
+        $this->addRelation('Article', 'EP\\ArticleBundle\\Model\\Article', RelationMap::ONE_TO_MANY, array('id' => 'author_id', ), null, null, 'Articles');
+        $this->addRelation('Commentary', 'EP\\CommentaryBundle\\Model\\Commentary', RelationMap::ONE_TO_MANY, array('id' => 'author_id', ), null, null, 'Commentaries');
         $this->addRelation('UserGroup', 'EP\\UserBundle\\Model\\UserGroup', RelationMap::ONE_TO_MANY, array('id' => 'fos_user_id', ), null, null, 'UserGroups');
         $this->addRelation('Group', 'EP\\UserBundle\\Model\\Group', RelationMap::MANY_TO_MANY, array(), null, null, 'Groups');
     } // buildRelations()

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<database name="enjoyPangolin" namespace="EP\CommentaryBundle\Model" defaultIdMethod="native">
-    <table name="commentary">
+<database name="default" namespace="EP\CommentaryBundle\Model" defaultIdMethod="native">
+    <table name="commentary" phpName="Commentary">
         <column name="id" type="integer" required="true" primaryKey="true" autoIncrement="true"/>
         <column name="content" type="longvarchar" required="true"/>
         <column name="like" type="integer" required="true"/>
@@ -8,7 +8,7 @@
         <column name="moderated" type="boolean" defaultValue="false" required="true"/>
         <column name="author_id" type="integer" required="true"/>
         <column name="article_id" type="integer" required="true"/>
-        <foreign-key foreignTable="user">
+        <foreign-key foreignTable="fos_user">
             <reference local="author_id" foreign="id"/>
         </foreign-key>
         <foreign-key foreignTable="article">

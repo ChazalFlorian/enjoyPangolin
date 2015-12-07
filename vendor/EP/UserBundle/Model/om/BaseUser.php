@@ -15,6 +15,10 @@ use \PropelDateTime;
 use \PropelException;
 use \PropelObjectCollection;
 use \PropelPDO;
+use EP\ArticleBundle\Model\Article;
+use EP\ArticleBundle\Model\ArticleQuery;
+use EP\CommentaryBundle\Model\Commentary;
+use EP\CommentaryBundle\Model\CommentaryQuery;
 use EP\UserBundle\Model\Group;
 use EP\UserBundle\Model\GroupQuery;
 use EP\UserBundle\Model\User;
@@ -165,6 +169,18 @@ abstract class BaseUser extends BaseObject implements Persistent
     protected $facebookid;
 
     /**
+     * @var        PropelObjectCollection|Article[] Collection to store aggregation of Article objects.
+     */
+    protected $collArticles;
+    protected $collArticlesPartial;
+
+    /**
+     * @var        PropelObjectCollection|Commentary[] Collection to store aggregation of Commentary objects.
+     */
+    protected $collCommentaries;
+    protected $collCommentariesPartial;
+
+    /**
      * @var        PropelObjectCollection|UserGroup[] Collection to store aggregation of UserGroup objects.
      */
     protected $collUserGroups;
@@ -200,6 +216,18 @@ abstract class BaseUser extends BaseObject implements Persistent
      * @var		PropelObjectCollection
      */
     protected $groupsScheduledForDeletion = null;
+
+    /**
+     * An array of objects scheduled for deletion.
+     * @var		PropelObjectCollection
+     */
+    protected $articlesScheduledForDeletion = null;
+
+    /**
+     * An array of objects scheduled for deletion.
+     * @var		PropelObjectCollection
+     */
+    protected $commentariesScheduledForDeletion = null;
 
     /**
      * An array of objects scheduled for deletion.
@@ -1150,6 +1178,10 @@ abstract class BaseUser extends BaseObject implements Persistent
 
         if ($deep) {  // also de-associate any related objects?
 
+            $this->collArticles = null;
+
+            $this->collCommentaries = null;
+
             $this->collUserGroups = null;
 
             $this->collGroups = null;
@@ -1299,6 +1331,40 @@ abstract class BaseUser extends BaseObject implements Persistent
                 foreach ($this->collGroups as $group) {
                     if ($group->isModified()) {
                         $group->save($con);
+                    }
+                }
+            }
+
+            if ($this->articlesScheduledForDeletion !== null) {
+                if (!$this->articlesScheduledForDeletion->isEmpty()) {
+                    ArticleQuery::create()
+                        ->filterByPrimaryKeys($this->articlesScheduledForDeletion->getPrimaryKeys(false))
+                        ->delete($con);
+                    $this->articlesScheduledForDeletion = null;
+                }
+            }
+
+            if ($this->collArticles !== null) {
+                foreach ($this->collArticles as $referrerFK) {
+                    if (!$referrerFK->isDeleted() && ($referrerFK->isNew() || $referrerFK->isModified())) {
+                        $affectedRows += $referrerFK->save($con);
+                    }
+                }
+            }
+
+            if ($this->commentariesScheduledForDeletion !== null) {
+                if (!$this->commentariesScheduledForDeletion->isEmpty()) {
+                    CommentaryQuery::create()
+                        ->filterByPrimaryKeys($this->commentariesScheduledForDeletion->getPrimaryKeys(false))
+                        ->delete($con);
+                    $this->commentariesScheduledForDeletion = null;
+                }
+            }
+
+            if ($this->collCommentaries !== null) {
+                foreach ($this->collCommentaries as $referrerFK) {
+                    if (!$referrerFK->isDeleted() && ($referrerFK->isNew() || $referrerFK->isModified())) {
+                        $affectedRows += $referrerFK->save($con);
                     }
                 }
             }
@@ -1564,6 +1630,22 @@ abstract class BaseUser extends BaseObject implements Persistent
             }
 
 
+                if ($this->collArticles !== null) {
+                    foreach ($this->collArticles as $referrerFK) {
+                        if (!$referrerFK->validate($columns)) {
+                            $failureMap = array_merge($failureMap, $referrerFK->getValidationFailures());
+                        }
+                    }
+                }
+
+                if ($this->collCommentaries !== null) {
+                    foreach ($this->collCommentaries as $referrerFK) {
+                        if (!$referrerFK->validate($columns)) {
+                            $failureMap = array_merge($failureMap, $referrerFK->getValidationFailures());
+                        }
+                    }
+                }
+
                 if ($this->collUserGroups !== null) {
                     foreach ($this->collUserGroups as $referrerFK) {
                         if (!$referrerFK->validate($columns)) {
@@ -1715,6 +1797,12 @@ abstract class BaseUser extends BaseObject implements Persistent
         }
 
         if ($includeForeignObjects) {
+            if (null !== $this->collArticles) {
+                $result['Articles'] = $this->collArticles->toArray(null, true, $keyType, $includeLazyLoadColumns, $alreadyDumpedObjects);
+            }
+            if (null !== $this->collCommentaries) {
+                $result['Commentaries'] = $this->collCommentaries->toArray(null, true, $keyType, $includeLazyLoadColumns, $alreadyDumpedObjects);
+            }
             if (null !== $this->collUserGroups) {
                 $result['UserGroups'] = $this->collUserGroups->toArray(null, true, $keyType, $includeLazyLoadColumns, $alreadyDumpedObjects);
             }
@@ -1969,6 +2057,18 @@ abstract class BaseUser extends BaseObject implements Persistent
             // store object hash to prevent cycle
             $this->startCopy = true;
 
+            foreach ($this->getArticles() as $relObj) {
+                if ($relObj !== $this) {  // ensure that we don't try to copy a reference to ourselves
+                    $copyObj->addArticle($relObj->copy($deepCopy));
+                }
+            }
+
+            foreach ($this->getCommentaries() as $relObj) {
+                if ($relObj !== $this) {  // ensure that we don't try to copy a reference to ourselves
+                    $copyObj->addCommentary($relObj->copy($deepCopy));
+                }
+            }
+
             foreach ($this->getUserGroups() as $relObj) {
                 if ($relObj !== $this) {  // ensure that we don't try to copy a reference to ourselves
                     $copyObj->addUserGroup($relObj->copy($deepCopy));
@@ -2036,9 +2136,490 @@ abstract class BaseUser extends BaseObject implements Persistent
      */
     public function initRelation($relationName)
     {
+        if ('Article' == $relationName) {
+            $this->initArticles();
+        }
+        if ('Commentary' == $relationName) {
+            $this->initCommentaries();
+        }
         if ('UserGroup' == $relationName) {
             $this->initUserGroups();
         }
+    }
+
+    /**
+     * Clears out the collArticles collection
+     *
+     * This does not modify the database; however, it will remove any associated objects, causing
+     * them to be refetched by subsequent calls to accessor method.
+     *
+     * @return User The current object (for fluent API support)
+     * @see        addArticles()
+     */
+    public function clearArticles()
+    {
+        $this->collArticles = null; // important to set this to null since that means it is uninitialized
+        $this->collArticlesPartial = null;
+
+        return $this;
+    }
+
+    /**
+     * reset is the collArticles collection loaded partially
+     *
+     * @return void
+     */
+    public function resetPartialArticles($v = true)
+    {
+        $this->collArticlesPartial = $v;
+    }
+
+    /**
+     * Initializes the collArticles collection.
+     *
+     * By default this just sets the collArticles collection to an empty array (like clearcollArticles());
+     * however, you may wish to override this method in your stub class to provide setting appropriate
+     * to your application -- for example, setting the initial array to the values stored in database.
+     *
+     * @param boolean $overrideExisting If set to true, the method call initializes
+     *                                        the collection even if it is not empty
+     *
+     * @return void
+     */
+    public function initArticles($overrideExisting = true)
+    {
+        if (null !== $this->collArticles && !$overrideExisting) {
+            return;
+        }
+        $this->collArticles = new PropelObjectCollection();
+        $this->collArticles->setModel('Article');
+    }
+
+    /**
+     * Gets an array of Article objects which contain a foreign key that references this object.
+     *
+     * If the $criteria is not null, it is used to always fetch the results from the database.
+     * Otherwise the results are fetched from the database the first time, then cached.
+     * Next time the same method is called without $criteria, the cached collection is returned.
+     * If this User is new, it will return
+     * an empty collection or the current collection; the criteria is ignored on a new object.
+     *
+     * @param Criteria $criteria optional Criteria object to narrow the query
+     * @param PropelPDO $con optional connection object
+     * @return PropelObjectCollection|Article[] List of Article objects
+     * @throws PropelException
+     */
+    public function getArticles($criteria = null, PropelPDO $con = null)
+    {
+        $partial = $this->collArticlesPartial && !$this->isNew();
+        if (null === $this->collArticles || null !== $criteria  || $partial) {
+            if ($this->isNew() && null === $this->collArticles) {
+                // return empty collection
+                $this->initArticles();
+            } else {
+                $collArticles = ArticleQuery::create(null, $criteria)
+                    ->filterByUser($this)
+                    ->find($con);
+                if (null !== $criteria) {
+                    if (false !== $this->collArticlesPartial && count($collArticles)) {
+                      $this->initArticles(false);
+
+                      foreach ($collArticles as $obj) {
+                        if (false == $this->collArticles->contains($obj)) {
+                          $this->collArticles->append($obj);
+                        }
+                      }
+
+                      $this->collArticlesPartial = true;
+                    }
+
+                    $collArticles->getInternalIterator()->rewind();
+
+                    return $collArticles;
+                }
+
+                if ($partial && $this->collArticles) {
+                    foreach ($this->collArticles as $obj) {
+                        if ($obj->isNew()) {
+                            $collArticles[] = $obj;
+                        }
+                    }
+                }
+
+                $this->collArticles = $collArticles;
+                $this->collArticlesPartial = false;
+            }
+        }
+
+        return $this->collArticles;
+    }
+
+    /**
+     * Sets a collection of Article objects related by a one-to-many relationship
+     * to the current object.
+     * It will also schedule objects for deletion based on a diff between old objects (aka persisted)
+     * and new objects from the given Propel collection.
+     *
+     * @param PropelCollection $articles A Propel collection.
+     * @param PropelPDO $con Optional connection object
+     * @return User The current object (for fluent API support)
+     */
+    public function setArticles(PropelCollection $articles, PropelPDO $con = null)
+    {
+        $articlesToDelete = $this->getArticles(new Criteria(), $con)->diff($articles);
+
+
+        $this->articlesScheduledForDeletion = $articlesToDelete;
+
+        foreach ($articlesToDelete as $articleRemoved) {
+            $articleRemoved->setUser(null);
+        }
+
+        $this->collArticles = null;
+        foreach ($articles as $article) {
+            $this->addArticle($article);
+        }
+
+        $this->collArticles = $articles;
+        $this->collArticlesPartial = false;
+
+        return $this;
+    }
+
+    /**
+     * Returns the number of related Article objects.
+     *
+     * @param Criteria $criteria
+     * @param boolean $distinct
+     * @param PropelPDO $con
+     * @return int             Count of related Article objects.
+     * @throws PropelException
+     */
+    public function countArticles(Criteria $criteria = null, $distinct = false, PropelPDO $con = null)
+    {
+        $partial = $this->collArticlesPartial && !$this->isNew();
+        if (null === $this->collArticles || null !== $criteria || $partial) {
+            if ($this->isNew() && null === $this->collArticles) {
+                return 0;
+            }
+
+            if ($partial && !$criteria) {
+                return count($this->getArticles());
+            }
+            $query = ArticleQuery::create(null, $criteria);
+            if ($distinct) {
+                $query->distinct();
+            }
+
+            return $query
+                ->filterByUser($this)
+                ->count($con);
+        }
+
+        return count($this->collArticles);
+    }
+
+    /**
+     * Method called to associate a Article object to this object
+     * through the Article foreign key attribute.
+     *
+     * @param    Article $l Article
+     * @return User The current object (for fluent API support)
+     */
+    public function addArticle(Article $l)
+    {
+        if ($this->collArticles === null) {
+            $this->initArticles();
+            $this->collArticlesPartial = true;
+        }
+
+        if (!in_array($l, $this->collArticles->getArrayCopy(), true)) { // only add it if the **same** object is not already associated
+            $this->doAddArticle($l);
+
+            if ($this->articlesScheduledForDeletion and $this->articlesScheduledForDeletion->contains($l)) {
+                $this->articlesScheduledForDeletion->remove($this->articlesScheduledForDeletion->search($l));
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param	Article $article The article object to add.
+     */
+    protected function doAddArticle($article)
+    {
+        $this->collArticles[]= $article;
+        $article->setUser($this);
+    }
+
+    /**
+     * @param	Article $article The article object to remove.
+     * @return User The current object (for fluent API support)
+     */
+    public function removeArticle($article)
+    {
+        if ($this->getArticles()->contains($article)) {
+            $this->collArticles->remove($this->collArticles->search($article));
+            if (null === $this->articlesScheduledForDeletion) {
+                $this->articlesScheduledForDeletion = clone $this->collArticles;
+                $this->articlesScheduledForDeletion->clear();
+            }
+            $this->articlesScheduledForDeletion[]= clone $article;
+            $article->setUser(null);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Clears out the collCommentaries collection
+     *
+     * This does not modify the database; however, it will remove any associated objects, causing
+     * them to be refetched by subsequent calls to accessor method.
+     *
+     * @return User The current object (for fluent API support)
+     * @see        addCommentaries()
+     */
+    public function clearCommentaries()
+    {
+        $this->collCommentaries = null; // important to set this to null since that means it is uninitialized
+        $this->collCommentariesPartial = null;
+
+        return $this;
+    }
+
+    /**
+     * reset is the collCommentaries collection loaded partially
+     *
+     * @return void
+     */
+    public function resetPartialCommentaries($v = true)
+    {
+        $this->collCommentariesPartial = $v;
+    }
+
+    /**
+     * Initializes the collCommentaries collection.
+     *
+     * By default this just sets the collCommentaries collection to an empty array (like clearcollCommentaries());
+     * however, you may wish to override this method in your stub class to provide setting appropriate
+     * to your application -- for example, setting the initial array to the values stored in database.
+     *
+     * @param boolean $overrideExisting If set to true, the method call initializes
+     *                                        the collection even if it is not empty
+     *
+     * @return void
+     */
+    public function initCommentaries($overrideExisting = true)
+    {
+        if (null !== $this->collCommentaries && !$overrideExisting) {
+            return;
+        }
+        $this->collCommentaries = new PropelObjectCollection();
+        $this->collCommentaries->setModel('Commentary');
+    }
+
+    /**
+     * Gets an array of Commentary objects which contain a foreign key that references this object.
+     *
+     * If the $criteria is not null, it is used to always fetch the results from the database.
+     * Otherwise the results are fetched from the database the first time, then cached.
+     * Next time the same method is called without $criteria, the cached collection is returned.
+     * If this User is new, it will return
+     * an empty collection or the current collection; the criteria is ignored on a new object.
+     *
+     * @param Criteria $criteria optional Criteria object to narrow the query
+     * @param PropelPDO $con optional connection object
+     * @return PropelObjectCollection|Commentary[] List of Commentary objects
+     * @throws PropelException
+     */
+    public function getCommentaries($criteria = null, PropelPDO $con = null)
+    {
+        $partial = $this->collCommentariesPartial && !$this->isNew();
+        if (null === $this->collCommentaries || null !== $criteria  || $partial) {
+            if ($this->isNew() && null === $this->collCommentaries) {
+                // return empty collection
+                $this->initCommentaries();
+            } else {
+                $collCommentaries = CommentaryQuery::create(null, $criteria)
+                    ->filterByUser($this)
+                    ->find($con);
+                if (null !== $criteria) {
+                    if (false !== $this->collCommentariesPartial && count($collCommentaries)) {
+                      $this->initCommentaries(false);
+
+                      foreach ($collCommentaries as $obj) {
+                        if (false == $this->collCommentaries->contains($obj)) {
+                          $this->collCommentaries->append($obj);
+                        }
+                      }
+
+                      $this->collCommentariesPartial = true;
+                    }
+
+                    $collCommentaries->getInternalIterator()->rewind();
+
+                    return $collCommentaries;
+                }
+
+                if ($partial && $this->collCommentaries) {
+                    foreach ($this->collCommentaries as $obj) {
+                        if ($obj->isNew()) {
+                            $collCommentaries[] = $obj;
+                        }
+                    }
+                }
+
+                $this->collCommentaries = $collCommentaries;
+                $this->collCommentariesPartial = false;
+            }
+        }
+
+        return $this->collCommentaries;
+    }
+
+    /**
+     * Sets a collection of Commentary objects related by a one-to-many relationship
+     * to the current object.
+     * It will also schedule objects for deletion based on a diff between old objects (aka persisted)
+     * and new objects from the given Propel collection.
+     *
+     * @param PropelCollection $commentaries A Propel collection.
+     * @param PropelPDO $con Optional connection object
+     * @return User The current object (for fluent API support)
+     */
+    public function setCommentaries(PropelCollection $commentaries, PropelPDO $con = null)
+    {
+        $commentariesToDelete = $this->getCommentaries(new Criteria(), $con)->diff($commentaries);
+
+
+        $this->commentariesScheduledForDeletion = $commentariesToDelete;
+
+        foreach ($commentariesToDelete as $commentaryRemoved) {
+            $commentaryRemoved->setUser(null);
+        }
+
+        $this->collCommentaries = null;
+        foreach ($commentaries as $commentary) {
+            $this->addCommentary($commentary);
+        }
+
+        $this->collCommentaries = $commentaries;
+        $this->collCommentariesPartial = false;
+
+        return $this;
+    }
+
+    /**
+     * Returns the number of related Commentary objects.
+     *
+     * @param Criteria $criteria
+     * @param boolean $distinct
+     * @param PropelPDO $con
+     * @return int             Count of related Commentary objects.
+     * @throws PropelException
+     */
+    public function countCommentaries(Criteria $criteria = null, $distinct = false, PropelPDO $con = null)
+    {
+        $partial = $this->collCommentariesPartial && !$this->isNew();
+        if (null === $this->collCommentaries || null !== $criteria || $partial) {
+            if ($this->isNew() && null === $this->collCommentaries) {
+                return 0;
+            }
+
+            if ($partial && !$criteria) {
+                return count($this->getCommentaries());
+            }
+            $query = CommentaryQuery::create(null, $criteria);
+            if ($distinct) {
+                $query->distinct();
+            }
+
+            return $query
+                ->filterByUser($this)
+                ->count($con);
+        }
+
+        return count($this->collCommentaries);
+    }
+
+    /**
+     * Method called to associate a Commentary object to this object
+     * through the Commentary foreign key attribute.
+     *
+     * @param    Commentary $l Commentary
+     * @return User The current object (for fluent API support)
+     */
+    public function addCommentary(Commentary $l)
+    {
+        if ($this->collCommentaries === null) {
+            $this->initCommentaries();
+            $this->collCommentariesPartial = true;
+        }
+
+        if (!in_array($l, $this->collCommentaries->getArrayCopy(), true)) { // only add it if the **same** object is not already associated
+            $this->doAddCommentary($l);
+
+            if ($this->commentariesScheduledForDeletion and $this->commentariesScheduledForDeletion->contains($l)) {
+                $this->commentariesScheduledForDeletion->remove($this->commentariesScheduledForDeletion->search($l));
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param	Commentary $commentary The commentary object to add.
+     */
+    protected function doAddCommentary($commentary)
+    {
+        $this->collCommentaries[]= $commentary;
+        $commentary->setUser($this);
+    }
+
+    /**
+     * @param	Commentary $commentary The commentary object to remove.
+     * @return User The current object (for fluent API support)
+     */
+    public function removeCommentary($commentary)
+    {
+        if ($this->getCommentaries()->contains($commentary)) {
+            $this->collCommentaries->remove($this->collCommentaries->search($commentary));
+            if (null === $this->commentariesScheduledForDeletion) {
+                $this->commentariesScheduledForDeletion = clone $this->collCommentaries;
+                $this->commentariesScheduledForDeletion->clear();
+            }
+            $this->commentariesScheduledForDeletion[]= clone $commentary;
+            $commentary->setUser(null);
+        }
+
+        return $this;
+    }
+
+
+    /**
+     * If this collection has already been initialized with
+     * an identical criteria, it returns the collection.
+     * Otherwise if this User is new, it will return
+     * an empty collection; or if this User has previously
+     * been saved, it will retrieve related Commentaries from storage.
+     *
+     * This method is protected by default in order to keep the public
+     * api reasonable.  You can provide public methods for those you
+     * actually need in User.
+     *
+     * @param Criteria $criteria optional Criteria object to narrow the query
+     * @param PropelPDO $con optional connection object
+     * @param string $join_behavior optional join type to use (defaults to Criteria::LEFT_JOIN)
+     * @return PropelObjectCollection|Commentary[] List of Commentary objects
+     */
+    public function getCommentariesJoinArticle($criteria = null, $con = null, $join_behavior = Criteria::LEFT_JOIN)
+    {
+        $query = CommentaryQuery::create(null, $criteria);
+        $query->joinWith('Article', $join_behavior);
+
+        return $this->getCommentaries($query, $con);
     }
 
     /**
@@ -2528,6 +3109,16 @@ abstract class BaseUser extends BaseObject implements Persistent
     {
         if ($deep && !$this->alreadyInClearAllReferencesDeep) {
             $this->alreadyInClearAllReferencesDeep = true;
+            if ($this->collArticles) {
+                foreach ($this->collArticles as $o) {
+                    $o->clearAllReferences($deep);
+                }
+            }
+            if ($this->collCommentaries) {
+                foreach ($this->collCommentaries as $o) {
+                    $o->clearAllReferences($deep);
+                }
+            }
             if ($this->collUserGroups) {
                 foreach ($this->collUserGroups as $o) {
                     $o->clearAllReferences($deep);
@@ -2542,6 +3133,14 @@ abstract class BaseUser extends BaseObject implements Persistent
             $this->alreadyInClearAllReferencesDeep = false;
         } // if ($deep)
 
+        if ($this->collArticles instanceof PropelCollection) {
+            $this->collArticles->clearIterator();
+        }
+        $this->collArticles = null;
+        if ($this->collCommentaries instanceof PropelCollection) {
+            $this->collCommentaries->clearIterator();
+        }
+        $this->collCommentaries = null;
         if ($this->collUserGroups instanceof PropelCollection) {
             $this->collUserGroups->clearIterator();
         }
