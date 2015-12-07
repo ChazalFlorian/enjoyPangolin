@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<database name="enjoyPangolin" namespace="EP\CommentaryBundle\Model" defaultIdMethod="native">
+    <table name="commentary">
+        <column name="id" type="integer" required="true" primaryKey="true" autoIncrement="true"/>
+        <column name="content" type="longvarchar" required="true"/>
+        <column name="like" type="integer" required="true"/>
+        <column name="dislike" type="integer" required="true"/>
+        <column name="moderated" type="boolean" defaultValue="false" required="true"/>
+        <column name="author_id" type="integer" required="true"/>
+        <column name="article_id" type="integer" required="true"/>
+        <foreign-key foreignTable="user">
+            <reference local="author_id" foreign="id"/>
+        </foreign-key>
+        <foreign-key foreignTable="article">
+            <reference local="article_id" foreign="id"/>
+        </foreign-key>
+    </table>
+</database>

@@ -1,3 +1,7 @@
+ep_commentary:
+    resource: "@EPCommentaryBundle/Resources/config/routing.xml"
+    prefix:   /
+
 ep_user:
     resource: "@EPUserBundle/Resources/config/routing.xml"
     prefix:   /
@@ -38,7 +42,3 @@ hwi_oauth_redirect:
 
 facebook_login:
     pattern: /login/check-facebook
-
-app:
-    resource: "@AppBundle/Controller/"
-    type:     annotation

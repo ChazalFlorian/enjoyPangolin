@@ -1,6 +1,6 @@
 <?php
 
-namespace EP\UserBundle\OAuth;
+namespace EP\UserBundle;
 
 use FOS\UserBundle\Model\UserInterface as FOSUserInterface;
 
