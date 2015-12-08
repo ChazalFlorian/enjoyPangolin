@@ -1,0 +1,5 @@
+{% for commentary in commentaries %}
+    {{ commentary.article.title }}
+    {{ commentary.content }}
+    {{ commentary.like }} | {{ commentary.dislike }}
+{% endfor %}

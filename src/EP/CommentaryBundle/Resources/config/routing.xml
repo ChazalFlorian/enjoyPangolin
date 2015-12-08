@@ -4,7 +4,19 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://symfony.com/schema/routing http://symfony.com/schema/routing/routing-1.0.xsd">
 
-    <route id="ep_commentary_homepage" path="/">
-        <default key="_controller">EPCommentaryBundle:Default:index</default>
+    <route id="ep_add_commentary" path="/commentary/add">
+        <default key="_controller">EPCommentaryBundle:main:addCommentary</default>
+    </route>
+    <route id="ep_edit_commentary" path="/commentary/edit/{id}">
+        <default key="_controller">EPCommentaryBundle:main:editCommentary</default>
+    </route>
+    <route id="ep_delete_commentary" path="/commentary/delete/{id}">
+        <default key="_controller">EPCommentaryBundle:main:addCommentary</default>
+    </route>
+    <route id="ep_show_article_commentary" path="/commentary/article/{id]">
+        <default key="_controller">EPCommentaryBundle:main:showCommentaryByArticle</default>
+    </route>
+    <route id="ep_show_user_commentary" path="/commentary/user/{id}">
+        <default key="_controller">EPCommentaryBundle:main:showCommentaryByUser</default>
     </route>
 </routes>

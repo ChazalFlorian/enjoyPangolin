@@ -71,9 +71,9 @@ class MainController extends Controller
         $q = new ArticleQuery();
         $currentArticle = $q->findPK($id);
 
-        if($currentArticle->delete())
-            $this->getSession()->getFlashBag()->add('notice', 'Article supprimé!');
-            return $this->redirect($this->generateUrl('ep_add_article'), 301);
+        $currentArticle->delete();
+        $this->getSession()->getFlashBag()->add('notice', 'Article supprimé!');
+        return $this->redirect($this->generateUrl('ep_add_article'), 301);
     }
 
     public function showArticleAction($id)

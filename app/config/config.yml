@@ -41,15 +41,15 @@ twig:
     strict_variables: "%kernel.debug%"
 
 # Doctrine Configuration
-doctrine:
-    dbal:
-        driver:   pdo_mysql
-        host:     "%database_host%"
-        port:     "%database_port%"
-        dbname:   "%database_name%"
-        user:     "%database_user%"
-        password: "%database_password%"
-        charset:  UTF8
+#doctrine:
+#    dbal:
+#        driver:   pdo_mysql
+#        host:     "%database_host%"
+#        port:     "%database_port%"
+#        dbname:   "%database_name%"
+#        user:     "%database_user%"
+#        password: "%database_password%"
+#        charset:  UTF8
         # if using pdo_sqlite as your database driver:
         #   1. add the path in parameters.yml
         #     e.g. database_path: "%kernel.root_dir%/data/data.db3"
@@ -57,10 +57,10 @@ doctrine:
         #   3. Uncomment next line:
         #     path:     "%database_path%"
 
-    orm:
-        auto_generate_proxy_classes: "%kernel.debug%"
-        naming_strategy: doctrine.orm.naming_strategy.underscore
-        auto_mapping: true
+#    orm:
+#        auto_generate_proxy_classes: "%kernel.debug%"
+#        naming_strategy: doctrine.orm.naming_strategy.underscore
+#        auto_mapping: true
 
 propel:
     dbal:
@@ -82,14 +82,17 @@ swiftmailer:
 fos_user:
     db_driver:              propel
     firewall_name:          main
-    user_class:             EP/UserBundle/Resources/config/schema.xml
-    use_listener:           true
+    user_class:             EP\UserBundle\Model\User
+    use_listener:           false
     use_flash_notifications: true
     use_username_form_type: true
     model_manager_name:     null  # change it to the name of your entity/document manager if you don't want to use the default one.
     from_email:
         address:        webmaster@enjoyPangolin.com
         sender_name:    enjoyPangolin
+    registration:
+        form:
+            type: fos_user_registration_register
 
 hwi_oauth:
   firewall_name: main

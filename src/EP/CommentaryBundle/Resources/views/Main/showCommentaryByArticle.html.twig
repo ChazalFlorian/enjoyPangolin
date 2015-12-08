@@ -1,0 +1,6 @@
+{% for commentary in commentaries %}
+    {{ commentary.content }}
+    {{ commentary.like }}
+    {{ commentary.dislike }}
+    {{ commentary.author.username }}
+{% endfor %}
