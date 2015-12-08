@@ -4,7 +4,19 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://symfony.com/schema/routing http://symfony.com/schema/routing/routing-1.0.xsd">
 
-    <route id="ep_article_homepage" path="/">
-        <default key="_controller">EPArticleBundle:Default:index</default>
+    <route id="ep_add_article" path="/add">
+        <default key="_controller">EPArticleBundle:Main:addArticle</default>
+    </route>
+    <route id="ep_edit_article" path="/edit/{id}">
+        <default key="_controller">EPArticleBundle:Main:editArticle</default>
+    </route>
+    <route id="ep_delete_article" path="/delete/{id}">
+        <default key="_controller">EPArticleBundle:Main:deleteArticle</default>
+    </route>
+    <route id="ep_show_article" path="/article/{id}">
+        <default key="_controller">EPArticleBundle:Main:showArticle</default>
+    </route>
+    <route id="ep_show_all_article" path="/articles">
+        <default key="_controller">EPArticleBundle:Main:showAllArticle</default>
     </route>
 </routes>

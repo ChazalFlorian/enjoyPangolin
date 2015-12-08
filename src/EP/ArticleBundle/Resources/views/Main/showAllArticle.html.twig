@@ -1,0 +1,12 @@
+{% for article in articles %}
+<article>
+    <h2>{{ article.title }}</h2>
+    <span>{{ article.header }}</span>
+    <div content="article-img">
+        <img src="{{ article.img }}">
+    </div>
+    <div class="article-content">
+        {{ article.content }}
+    </div>
+</article>
+{% endfor %}
